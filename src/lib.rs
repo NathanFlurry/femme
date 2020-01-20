@@ -36,16 +36,16 @@ pub mod wasm;
 /// log::warn!("Unauthorized access attempt on /login");
 /// log::info!("Listening on port 8080");
 /// ```
-pub fn start(filter: log::LevelFilter) -> Result<(), log::SetLoggerError> {
+pub fn start(filter: env_logger::filter::Filter) -> Result<(), log::SetLoggerError> {
     #[cfg(target_arch = "wasm32")]
-    wasm::Logger::new().start(filter)?;
+    wasm::Logger::new(filter).start()?;
 
     #[cfg(not(target_arch = "wasm32"))]
     {
         if cfg!(debug_assertions) {
-            pretty::Logger::new().start(filter)?;
+            pretty::Logger::new(filter).start()?;
         } else {
-            ndjson::Logger::new().start(filter)?;
+            ndjson::Logger::new(filter).start()?;
         }
     }
 

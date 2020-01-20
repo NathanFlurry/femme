@@ -1,12 +1,14 @@
 //! Print logs as ndjson.
 
-use log::{kv, LevelFilter, Log, Metadata, Record};
+use log::{kv, Log, Metadata, Record};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::time;
 
 #[derive(Debug)]
-pub struct Logger {}
+pub struct Logger {
+    filter: env_logger::filter::Filter,
+}
 
 #[derive(serde_derive::Serialize)]
 struct Msg {
@@ -18,12 +20,13 @@ struct Msg {
 }
 
 impl Logger {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(filter: env_logger::filter::Filter) -> Self {
+        Self { filter }
     }
 
     /// Start logging.
-    pub fn start(self, filter: LevelFilter) -> Result<(), log::SetLoggerError> {
+    pub fn start(self) -> Result<(), log::SetLoggerError> {
+        let filter = self.filter.filter();
         let res = log::set_boxed_logger(Box::new(self));
         if res.is_ok() {
             log::set_max_level(filter);
@@ -34,14 +37,15 @@ impl Logger {
 
 impl Log for Logger {
     fn enabled(&self, metadata: &Metadata<'_>) -> bool {
-        metadata.level() <= log::max_level()
+        self.filter.enabled(metadata)
     }
 
     fn log(&self, record: &Record<'_>) {
-        if self.enabled(record.metadata()) {
+        if self.filter.matches(record) {
             print_ndjson(record)
         }
     }
+
     fn flush(&self) {}
 }
 

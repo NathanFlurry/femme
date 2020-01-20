@@ -3,21 +3,24 @@
 //! Basic log printing; useful when building command line applications that shouldn't have any
 //! extra formatting, but still want to use `log` and the log level filtering.
 
-use log::{kv, LevelFilter, Level, Log, Metadata, Record};
 use console::style;
+use log::{kv, Level, Log, Metadata, Record};
 
 /// Basic log printing.
 #[derive(Debug)]
-pub struct Logger {}
+pub struct Logger {
+    filter: env_logger::filter::Filter,
+}
 
 impl Logger {
     /// Create a new instance.
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(filter: env_logger::filter::Filter) -> Self {
+        Self { filter }
     }
 
     /// Start logging.
-    pub fn start(self, filter: LevelFilter) -> Result<(), log::SetLoggerError> {
+    pub fn start(self) -> Result<(), log::SetLoggerError> {
+        let filter = self.filter.filter();
         let res = log::set_boxed_logger(Box::new(self));
         if res.is_ok() {
             log::set_max_level(filter);
@@ -28,11 +31,11 @@ impl Logger {
 
 impl Log for Logger {
     fn enabled(&self, metadata: &Metadata<'_>) -> bool {
-        metadata.level() <= log::max_level()
+        self.filter.enabled(metadata)
     }
 
     fn log(&self, record: &Record<'_>) {
-        if self.enabled(record.metadata()) {
+        if self.filter.matches(record) {
             let args = record.args();
             let msg = match record.level() {
                 Level::Error => format!("{}", style(args).red()),
@@ -42,6 +45,7 @@ impl Log for Logger {
             println!("{}{}", msg, KeyValues::fmt(&record));
         }
     }
+
     fn flush(&self) {}
 }
 
@@ -50,11 +54,7 @@ struct KeyValues {
 }
 
 impl<'kvs> kv::Visitor<'kvs> for KeyValues {
-    fn visit_pair(
-        &mut self,
-        key: kv::Key<'kvs>,
-        val: kv::Value<'kvs>,
-    ) -> Result<(), kv::Error> {
+    fn visit_pair(&mut self, key: kv::Key<'kvs>, val: kv::Value<'kvs>) -> Result<(), kv::Error> {
         if let None = self.output {
             self.output = Some(String::new());
         }
